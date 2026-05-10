@@ -28,28 +28,6 @@
   - S/A/B/C/D rank system based on kills, bullet-blocks, deaths, and time
   - Sci-fi visual theme: neon tile glow, parallax star field, animated exit portal
 
-- **Screenshots:**
-  > *(Add game screenshots and stats dashboard screenshots here — place image files in the repo and reference them below)*
-
-  ```
-  ![Gameplay](screenshots/gameplay.png)
-  ![Stats Dashboard](screenshots/stats_dashboard.png)
-  ![Level 3 Ruins](screenshots/level3.png)
-  ```
-
-- **Proposal:**
-  [View Project Proposal PDF](PixelShot_ProjectProposal_v3.pdf)
-
-- **YouTube Presentation:**
-  > *(Add your YouTube link here after recording)*
-
-  [Watch Presentation on YouTube](https://www.youtube.com/watch?v=YOUR_LINK_HERE)
-
-  The presentation covers:
-  1. Introduction and full demonstration of all game levels and the statistics dashboard
-  2. Explanation of class design, OOP structure, and how classes interact
-  3. Walkthrough of statistical data collection, CSV export, and graph visualisations
-
 ---
 
 ## 2. Concept
