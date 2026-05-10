@@ -266,6 +266,7 @@ class Game:
 
     # ── Draw ─────────────────────────────────────────────────────────────────
     def _draw(self):
+        self.screen.fill((6, 8, 18))
         mouse_pos = pygame.mouse.get_pos()
         events    = self.input.events
 

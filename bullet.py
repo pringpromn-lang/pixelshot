@@ -1,9 +1,9 @@
-"""bullet.py — Projectile with bullet-block intercept logic"""
+"""bullet.py — Projectile with bullet-block intercept + neon trail"""
 import pygame, math
 from settings import *
 
 class Bullet:
-    SIZE = 6
+    SIZE = 5
 
     def __init__(self, x, y, vel_x, vel_y, is_player_bullet):
         self.x  = float(x)
@@ -12,10 +12,12 @@ class Bullet:
         self.vel_y = vel_y
         self.is_player_bullet = is_player_bullet
         self.is_active = True
-        self.age = 0.0          # seconds alive
+        self.age = 0.0
         self.MAX_AGE = 4.0
+        # Trail: list of (x, y) positions
+        self._trail = []
+        self._trail_timer = 0.0
 
-    # ── Rect for collision ────────────────────────────────────────────────────
     @property
     def rect(self):
         return pygame.Rect(
@@ -24,10 +26,18 @@ class Bullet:
             self.SIZE, self.SIZE
         )
 
-    # ── Update ────────────────────────────────────────────────────────────────
     def update(self, dt, tile_rects):
         if not self.is_active:
             return
+
+        # Record trail point
+        self._trail_timer += dt
+        if self._trail_timer > 0.018:
+            self._trail_timer = 0.0
+            self._trail.append((self.x, self.y))
+            if len(self._trail) > 10:
+                self._trail.pop(0)
+
         self.x   += self.vel_x * dt
         self.y   += self.vel_y * dt
         self.age += dt
@@ -36,25 +46,17 @@ class Bullet:
             self.destroy()
             return
 
-        # Tile collision
         for tr in tile_rects:
             if self.rect.colliderect(tr):
                 self.destroy()
                 return
 
-    # ── Bullet-block intercept ────────────────────────────────────────────────
     def check_intercept(self, other):
-        """
-        Returns True if this player bullet intercepts an enemy bullet.
-        Destroys both on success.
-        """
         if not self.is_active or not other.is_active:
             return False
         if self.is_player_bullet == other.is_player_bullet:
             return False
-        dx = self.x - other.x
-        dy = self.y - other.y
-        if math.hypot(dx, dy) <= BULLET_INTERCEPT_DIST:
+        if math.hypot(self.x - other.x, self.y - other.y) <= BULLET_INTERCEPT_DIST:
             self.destroy()
             other.destroy()
             return True
@@ -63,16 +65,29 @@ class Bullet:
     def destroy(self):
         self.is_active = False
 
-    # ── Draw ──────────────────────────────────────────────────────────────────
     def draw(self, surface, camera):
         if not self.is_active:
             return
         sx, sy = camera.apply_point(self.x, self.y)
-        colour  = C_BULLET_P if self.is_player_bullet else C_BULLET_E
-        # Glow effect: draw a slightly larger dim circle first
-        glow_r = self.SIZE + 3
-        glow_surf = pygame.Surface((glow_r*2, glow_r*2), pygame.SRCALPHA)
-        gc = (*colour, 60)
-        pygame.draw.circle(glow_surf, gc, (glow_r, glow_r), glow_r)
-        surface.blit(glow_surf, (sx - glow_r, sy - glow_r))
-        pygame.draw.circle(surface, colour, (int(sx), int(sy)), self.SIZE // 2 + 1)
+
+        core_col  = C_BULLET_P  if self.is_player_bullet else C_BULLET_E
+        trail_col = C_BULLET_P2 if self.is_player_bullet else C_BULLET_E2
+
+        # Trail — solid fading circles (no SRCALPHA)
+        for i, (tx, ty) in enumerate(self._trail):
+            stx, sty = camera.apply_point(tx, ty)
+            fade = i / max(len(self._trail), 1)
+            r    = max(1, int(self.SIZE * 0.4 * fade))
+            c    = tuple(int(v * fade * 0.7) for v in trail_col)
+            pygame.draw.circle(surface, c, (int(stx), int(sty)), r)
+
+        # Outer glow — larger dim circle
+        pygame.draw.circle(surface, tuple(v//5 for v in core_col),
+                           (int(sx), int(sy)), self.SIZE + 5)
+        # Mid glow
+        pygame.draw.circle(surface, tuple(v//2 for v in core_col),
+                           (int(sx), int(sy)), self.SIZE + 2)
+        # Core
+        pygame.draw.circle(surface, core_col, (int(sx), int(sy)), self.SIZE//2 + 1)
+        # Bright centre
+        pygame.draw.circle(surface, C_WHITE,  (int(sx), int(sy)), max(1, self.SIZE//4))

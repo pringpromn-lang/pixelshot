@@ -1,12 +1,10 @@
-"""enemy.py — GuardEnemy with simple FSM: Idle → Alert → Chase → Attack"""
+"""enemy.py — Sci-fi drone enemy, zero SRCALPHA surfaces"""
 import pygame, math, random
 from settings import *
 from bullet import Bullet
 
 class GuardEnemy:
-    W, H = 22, 32
-    STATES = ("idle", "patrol", "alert", "attack", "dead")
-
+    W, H = 24, 28
     def __init__(self, x, y):
         self.x     = float(x)
         self.y     = float(y)
@@ -14,16 +12,16 @@ class GuardEnemy:
         self.vel_y = 0.0
         self.on_ground = False
         self.facing    = -1
-
         self.state        = "patrol"
         self.patrol_dir   = 1
         self.patrol_timer = 0.0
         self.alert_timer  = 0.0
         self.shoot_timer  = 0.0
         self.dead_timer   = 0.0
-
-        self._anim_tick  = 0.0
-        self._anim_frame = 0
+        self._anim_tick   = 0.0
+        self._hover_bob   = random.uniform(0, math.pi * 2)
+        self._scan_angle  = 0.0
+        self._muzzle_flash= 0.0
 
     @property
     def rect(self):
@@ -33,77 +31,66 @@ class GuardEnemy:
     def is_alive(self):
         return self.state != "dead"
 
-    # ── FSM ───────────────────────────────────────────────────────────────────
-    def change_state(self, new_state):
-        self.state = new_state
+    def change_state(self, s): self.state = s
 
-    def _dist_to_player(self, px, py):
+    def _dist(self, px, py):
         return math.hypot(self.x - px, self.y - py)
 
     def detect_player(self, px, py):
-        return self._dist_to_player(px, py) < GUARD_DETECT_R
+        return self._dist(px, py) < GUARD_DETECT_R
 
-    # ── Update ────────────────────────────────────────────────────────────────
     def update(self, dt, tile_rects, player, bullets):
         if self.state == "dead":
             self.dead_timer -= dt
             return
 
+        self._hover_bob  += dt * 3.0
+        self._anim_tick  += dt * 5
+        self._muzzle_flash = max(0, self._muzzle_flash - dt)
+
         px = player.x + player.W / 2
         py = player.y + player.H / 2
-        dist = self._dist_to_player(px, py)
+        dist = self._dist(px, py)
 
-        # ── State transitions ─────────────────────────────────────────────────
         if self.state == "patrol":
             if self.detect_player(px, py) and player.is_alive:
                 self.change_state("alert")
-                self.alert_timer = 0.5
-
+                self.alert_timer = 0.6
         elif self.state == "alert":
             self.alert_timer -= dt
+            self._scan_angle  += dt * 4
             if self.alert_timer <= 0:
                 self.change_state("attack")
-
+                self.shoot_timer = 0.3
         elif self.state == "attack":
-            if not player.is_alive or dist > GUARD_DETECT_R * 1.4:
+            if not player.is_alive or dist > GUARD_DETECT_R * 1.5:
                 self.change_state("patrol")
 
-        # ── State behaviour ───────────────────────────────────────────────────
         if self.state == "patrol":
             self._do_patrol(dt, tile_rects)
-
+            self._scan_angle += dt * 1.5
         elif self.state == "alert":
-            self.vel_x = 0   # stop and flash
+            self.vel_x = 0
             self.facing = 1 if px > self.x else -1
-
         elif self.state == "attack":
-            # Strafe toward player slowly
-            target_x = px - self.W / 2
-            dx = target_x - self.x
-            if abs(dx) > 60:
-                self.vel_x = math.copysign(GUARD_SPEED * 0.7, dx)
+            dx = (px - self.W/2) - self.x
+            if abs(dx) > 80:
+                self.vel_x = math.copysign(GUARD_SPEED * 0.65, dx)
                 self.facing = 1 if dx > 0 else -1
             else:
                 self.vel_x = 0
                 self.facing = 1 if px > self.x else -1
-
-            # Shoot
             self.shoot_timer -= dt
             if self.shoot_timer <= 0:
                 self.shoot_timer = GUARD_FIRE_RATE
                 self._shoot(px, py, bullets)
 
-        # ── Physics ───────────────────────────────────────────────────────────
         self.vel_y += GRAVITY * dt
         self.x += self.vel_x * dt
         self._resolve_x(tile_rects)
         self.y += self.vel_y * dt
         self.on_ground = False
         self._resolve_y(tile_rects)
-
-        # Animation
-        self._anim_tick += dt * 6
-        self._anim_frame = int(self._anim_tick) % 4
 
     def _do_patrol(self, dt, tile_rects):
         self.patrol_timer -= dt
@@ -114,87 +101,107 @@ class GuardEnemy:
         self.facing = self.patrol_dir
 
     def _shoot(self, tx, ty, bullets):
-        cx = self.x + self.W / 2
-        cy = self.y + self.H / 2
-        dx = tx - cx
-        dy = ty - cy
+        cx = self.x + self.W/2
+        cy = self.y + self.H/2
+        dx, dy = tx-cx, ty-cy
         dist = math.hypot(dx, dy) or 1
-        # Add slight inaccuracy
-        angle_noise = math.radians(random.uniform(-6, 6))
-        cos_n, sin_n = math.cos(angle_noise), math.sin(angle_noise)
-        vx = (dx/dist*cos_n - dy/dist*sin_n) * BULLET_SPEED_E
-        vy = (dx/dist*sin_n + dy/dist*cos_n) * BULLET_SPEED_E
+        noise = math.radians(random.uniform(-5, 5))
+        cn, sn = math.cos(noise), math.sin(noise)
+        vx = (dx/dist*cn - dy/dist*sn) * BULLET_SPEED_E
+        vy = (dx/dist*sn + dy/dist*cn) * BULLET_SPEED_E
         bullets.append(Bullet(cx, cy, vx, vy, is_player_bullet=False))
+        self._muzzle_flash = 0.1
 
     def take_damage(self):
-        if self.state == "dead":
-            return
+        if self.state == "dead": return
         self.change_state("dead")
-        self.dead_timer = 0.4
+        self.dead_timer = 0.5
 
     def _resolve_x(self, tile_rects):
         r = self.rect
         for tr in tile_rects:
             if r.colliderect(tr):
-                if self.vel_x > 0:
-                    self.x = tr.left - self.W
-                    self.patrol_dir = -1
-                elif self.vel_x < 0:
-                    self.x = tr.right
-                    self.patrol_dir = 1
-                self.vel_x = 0
-                r = self.rect
+                if self.vel_x > 0:   self.x = tr.left - self.W; self.patrol_dir = -1
+                elif self.vel_x < 0: self.x = tr.right;          self.patrol_dir =  1
+                self.vel_x = 0; r = self.rect
 
     def _resolve_y(self, tile_rects):
         r = self.rect
         for tr in tile_rects:
             if r.colliderect(tr):
-                if self.vel_y > 0:
-                    self.y = tr.top - self.H
-                    self.on_ground = True
-                elif self.vel_y < 0:
-                    self.y = tr.bottom
-                self.vel_y = 0
-                r = self.rect
+                if self.vel_y > 0:   self.y = tr.top - self.H; self.on_ground = True
+                elif self.vel_y < 0: self.y = tr.bottom
+                self.vel_y = 0; r = self.rect
 
-    # ── Draw ──────────────────────────────────────────────────────────────────
+    # ── Draw — NO SRCALPHA surfaces ───────────────────────────────────────────
     def draw(self, surface, camera):
         sx, sy = camera.apply_point(self.x, self.y)
-        r = pygame.Rect(sx, sy, self.W, self.H)
+        bx, by = int(sx), int(sy)
+        t = pygame.time.get_ticks() / 1000.0
 
+        # ── Dead: expanding ring ──────────────────────────────────────────────
         if self.state == "dead":
-            pygame.draw.rect(surface, C_GRAY, r, border_radius=3)
+            if self.dead_timer > 0:
+                r = int((1 - self.dead_timer/0.5) * 24) + 4
+                pygame.draw.circle(surface, C_ENEMY,  (bx+self.W//2, by+self.H//2), r, 3)
+                pygame.draw.circle(surface, C_ENEMY2, (bx+self.W//2, by+self.H//2), max(1,r-4), 2)
             return
 
-        # Body
-        col = C_ENEMY
-        if self.state == "alert":
-            # Flash red/white
-            col = C_FLASH if int(pygame.time.get_ticks() / 80) % 2 == 0 else C_ENEMY
-        pygame.draw.rect(surface, col, r, border_radius=3)
+        # ── Scan laser — direct line on surface ───────────────────────────────
+        if self.state in ("alert", "attack"):
+            la  = self._scan_angle if self.state == "alert" else math.atan2(
+                (camera.offset_y + surface.get_height()//2) - (by + self.H//2),
+                (camera.offset_x + surface.get_width()//2)  - (bx + self.W//2))
+            lx2 = bx + self.W//2 + int(math.cos(la) * 100)
+            ly2 = by + self.H//2 + int(math.sin(la) * 100)
+            pygame.draw.line(surface, C_ENEMY2 if self.state=="alert" else C_ENEMY_DIM,
+                             (bx+self.W//2, by+self.H//2), (lx2, ly2), 1)
 
-        # Visor
-        vw = 8
-        vx = sx + (self.W - vw - 2) if self.facing == 1 else sx + 2
-        pygame.draw.rect(surface, (60, 20, 20), (vx, sy + 6, vw, 5), border_radius=2)
-
-        # Detection arc (faint)
+        # ── Patrol detection ring — thin circle ───────────────────────────────
         if self.state == "patrol":
-            detect_surf = pygame.Surface((GUARD_DETECT_R*2, GUARD_DETECT_R*2), pygame.SRCALPHA)
-            pygame.draw.circle(detect_surf, (255, 80, 80, 18),
-                               (GUARD_DETECT_R, GUARD_DETECT_R), GUARD_DETECT_R)
-            surface.blit(detect_surf, (sx + self.W//2 - GUARD_DETECT_R,
-                                       sy + self.H//2 - GUARD_DETECT_R))
+            pulse = int(abs(math.sin(t*1.5)) * 15) + 3
+            pygame.draw.circle(surface, C_ENEMY_DIM,
+                               (bx+self.W//2, by+self.H//2),
+                               GUARD_DETECT_R, 1)
 
-        # Legs
-        if self.vel_x != 0 and self.on_ground:
-            lf = self._anim_frame
-            l1y = sy + self.H - 8 + (3 if lf < 2 else 0)
-            l2y = sy + self.H - 8 + (3 if lf >= 2 else 0)
-            pygame.draw.rect(surface, (150, 50, 50), (sx + 3,  l1y, 5, 8))
-            pygame.draw.rect(surface, (150, 50, 50), (sx + 12, l2y, 5, 8))
+        # ── Landing struts ────────────────────────────────────────────────────
+        leg_y = by + self.H - 6
+        for lx_off in [4, self.W-10]:
+            pygame.draw.rect(surface, C_ENEMY2, (bx+lx_off, leg_y, 4, 8), border_radius=1)
+            pygame.draw.rect(surface, C_ENEMY,  (bx+lx_off-2, leg_y+7, 8, 2), border_radius=1)
 
-        # State label (small)
-        font = pygame.font.SysFont("monospace", 9)
-        lbl  = font.render(self.state.upper(), True, C_GRAY)
-        surface.blit(lbl, (sx, sy - 12))
+        # ── Hull ──────────────────────────────────────────────────────────────
+        pygame.draw.rect(surface, (50,12,18), (bx, by+6, self.W, self.H-12), border_radius=4)
+        pygame.draw.rect(surface, (80,20,28), (bx, by+6, self.W, self.H-12), 1, border_radius=4)
+        # Panel lines
+        pygame.draw.line(surface, (60,15,22), (bx+3,  by+10), (bx+3,  by+self.H-10), 1)
+        pygame.draw.line(surface, (60,15,22), (bx+self.W-4, by+10), (bx+self.W-4, by+self.H-10), 1)
+
+        # ── Sensor dome ───────────────────────────────────────────────────────
+        pygame.draw.ellipse(surface, (40,10,15), (bx+2, by, self.W-4, 10))
+        pygame.draw.ellipse(surface, (70,18,26), (bx+2, by, self.W-4, 10), 1)
+
+        # ── Scanner eye — pulsing solid circle ────────────────────────────────
+        pulse = int(abs(math.sin(t*3)) * 60)
+        eye_col = (255, max(0, 50-pulse), max(0, 50-pulse))
+        eye_x   = bx + (self.W-6) if self.facing == 1 else bx + 3
+        pygame.draw.circle(surface, eye_col, (eye_x, by+5), 4)
+        pygame.draw.circle(surface, C_WHITE,  (eye_x, by+5), 1)
+
+        # Alert flash: draw red outline on hull
+        if self.state == "alert" and int(t*10) % 2 == 0:
+            pygame.draw.rect(surface, C_ENEMY, (bx, by+6, self.W, self.H-12), 2, border_radius=4)
+
+        # ── Weapon mount ──────────────────────────────────────────────────────
+        gun_x = bx + (self.W-2) if self.facing == 1 else bx - 6
+        pygame.draw.rect(surface, (80,20,28), (gun_x, by+10, 8, 5), border_radius=2)
+
+        # Muzzle flash
+        if self._muzzle_flash > 0:
+            muz_x = gun_x + (9 if self.facing == 1 else -2)
+            pygame.draw.circle(surface, C_BULLET_E, (muz_x, by+12), 5)
+            pygame.draw.circle(surface, C_WHITE,    (muz_x, by+12), 2)
+
+        # ── Status strip ──────────────────────────────────────────────────────
+        strip = {"patrol": C_ENEMY2, "alert": C_BULLET_E, "attack": C_ENEMY}[self.state]
+        pygame.draw.rect(surface, strip, (bx+4, by+self.H-14, self.W-8, 3), border_radius=1)
