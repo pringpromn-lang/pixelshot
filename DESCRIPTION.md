@@ -84,7 +84,7 @@
 
 The UML class diagram shows all 9 implemented classes, their attributes (public `+` and private `-`), key methods, inheritance from `GameObject`, and association relationships between classes.
 
-**Diagram file:** [PixelShot_UML.pdf](PixelShot_UML.pdf)
+**Diagram file:** [PixelShot_UML.pdf](uml.pdf)
 
 Key relationships:
 - `Player`, `Enemy`, and `Bullet` all inherit from `GameObject`
