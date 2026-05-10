@@ -1,6 +1,10 @@
 # PIXEL SHOT
 
+## Project Description
 A 2D pixel-art action platformer built with Python and Pygame. Dash, shoot, and block enemy bullets across 5 levels — all while your performance data is tracked and visualised in real time.
+
+- Project by: Sirapat Pringprom
+- Game Genre: Action, Platformer, Bullet Hell
 
 ---
 
@@ -16,7 +20,7 @@ A 2D pixel-art action platformer built with Python and Pygame. Dash, shoot, and 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/pixelshot.git
+git clone https://github.com/pringpromn-lang/pixelshot.git
 cd pixelshot
 ```
 
