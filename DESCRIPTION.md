@@ -29,6 +29,7 @@
   - Sci-fi visual theme: neon tile glow, parallax star field, animated exit portal
 
 - **Screenshots:**
+
   ```
   ![Start Menu](screenshots/gameplay/start_menu.png)
   ![Level 1 Gameplay](screenshots/gameplay/level1_gameplay.png)
@@ -41,7 +42,7 @@
   ![Graph Stats Dashboard](screenshots/gameplay/graph_stats.png)
   ![Table Stats Dashboard](screenshots/gameplay/table_stats.png)
   ```
-
+  
 - **Proposal:**
   [View Project Proposal PDF](proposal.pdf)
 
