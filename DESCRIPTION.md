@@ -28,6 +28,32 @@
   - S/A/B/C/D rank system based on kills, bullet-blocks, deaths, and time
   - Sci-fi visual theme: neon tile glow, parallax star field, animated exit portal
 
+- **Screenshots:**
+  ```
+  ![Start Menu](screenshots/gameplay/start_menu.png)
+  ![Level 1 Gameplay](screenshots/gameplay/level1_gameplay.png)
+  ![Level 2 Gameplay](screenshots/gameplay/level2_stage.png)
+  ![Level 3 Gameplay](screenshots/gameplay/level3_gameplay.png)
+  ![Level 4 Gameplay](screenshots/gameplay/level4_gameplay.png)
+  ![Level 5 Gameplay](screenshots/gameplay/level5_gameplay.png)
+  ![Gameover](screenshots/gameplay/game_over.png)
+  ![Clear All Stage](screenshots/gameplay/clear_all_ui.png)
+  ![Graph Stats Dashboard](screenshots/gameplay/graph_stats.png)
+  ![Table Stats Dashboard](screenshots/gameplay/table_stats.png)
+  ```
+
+- **Proposal:**
+  [View Project Proposal PDF](proposal.pdf)
+
+- **YouTube Presentation:**
+
+  [Watch Presentation on YouTube](https://youtu.be/dyDSlEDuY2I)
+
+  The presentation covers:
+  1. Introduction and full demonstration of all game levels and the statistics dashboard
+  2. Explanation of class design, OOP structure, and how classes interact
+  3. Walkthrough of statistical data collection, CSV export, and graph visualisations
+
 ---
 
 ## 2. Concept
